@@ -1,0 +1,19 @@
+funk sum(numlist as vector) {
+    $result :: int = 5d ;
+    """string
+    string"""
+
+    for (i = 0 to length(numlist))
+    begin
+        result = result + numlist[i];
+    end
+    print
+
+    return result;
+
+    </
+        char
+        </ int/>  
+     
+
+}
