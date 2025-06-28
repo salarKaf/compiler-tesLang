@@ -462,7 +462,7 @@ class SemanticAnalyzer:
         for arg in node.args:
             self.visit(arg)
 
-        if node.name in ['print', 'list', 'length']:
+        if node.name in ['print', 'list', 'length' , 'scan']:
             return self.handle_builtin_function(node)
 
         func_symbol = self.symbol_table.lookup(node.name)
@@ -485,16 +485,28 @@ class SemanticAnalyzer:
         if node.name == 'print': return 'null'
         elif node.name == 'list': return 'vector'
         elif node.name == 'length': return 'int'
+        elif node.name == 'scan':   return 'int'
         return None
-
+    
+    
     def visit_Return(self, node):
         if not self.current_function:
             self.add_error("return statement outside of function", node.line)
             return
+        
+        # بررسی مقدار داخل return
+        if node.value:
+            self.visit(node.value)  # ← همین خط مهمه
+
         expected_type = self.current_function.return_type
         actual_type = 'null' if node.value is None else self.get_expression_type(node.value)
+        
         if actual_type and expected_type != actual_type:
-            self.add_error(f"function '{self.current_function.name}': wrong return type. expected '{expected_type}' but got '{actual_type}'", node.line)
+            self.add_error(
+                f"function '{self.current_function.name}': wrong return type. expected '{expected_type}' but got '{actual_type}'",
+                node.line
+            )
+
 
     def visit_Identifier(self, node):
         var_symbol = self.symbol_table.lookup(node.name)

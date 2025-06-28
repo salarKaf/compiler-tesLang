@@ -1,0 +1,19 @@
+funk add(a as int, b as int) <int> 
+{ 
+    result :: int ;
+    result = a + b ;
+    return result ;
+} 
+
+funk main() <null> 
+{ 
+    a :: int; 
+    b :: int; 
+
+    a = scan(); 
+    b = scan(); 
+
+    print(add(a, b)) ;
+
+    return; 
+}

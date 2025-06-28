@@ -236,7 +236,6 @@
 
 
 
-
 # main.py
 import sys
 import os
@@ -247,45 +246,38 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 try:
     from Lexer import lexer
     from parser import compile_teslang
+    from codegen import compile_teslang_with_codegen
 except ImportError as e:
     print(f"Import error: {e}")
     print("Make sure all files are in the correct directory structure")
     sys.exit(1)
 
 def main():
-    # For testing, we'll use the hardcoded example first
-    test_code = '''funk find(A as vector, n as int) <int>
+    # Example code from the problem description
+    test_code = '''funk add(a as int, b as int) <int>
 {
-k :: int;
-j :: int;
-for (i = 0 to length(A))
-begin
-if [[ n == k ]]
-begin
-return j;
-end
-j = x + 1;
-end
-return -1;
+    result :: int;
+    result = a + b;
+    return result;
 }
+
 funk main() <null>
 {
-A :: int;
-a :: int;
-A = list(3);
-A[0] = 1;
-A[1] = 2;
-A[2] = 3;
-print(find(A, a));
-print(find(A));
-print(find(a, A));
-return A;
+    a :: int;
+    b :: int;
+    
+    a = scan();
+    b = scan();
+    
+    print(add(a, b));
+    return;
 }'''
     
-    print("Compiling TesLang code...")
+    print("TesLang Compiler - Step 3: Code Generation")
     print("=" * 50)
     
-    # Compile the code
+    # Step 1 & 2: Parse and perform semantic analysis
+    print("Step 1 & 2: Parsing and Semantic Analysis...")
     errors = compile_teslang(test_code)
     
     if errors:
@@ -293,10 +285,29 @@ return A;
         print("-" * 30)
         for error in errors:
             print(error)
+        return
     else:
-        print("Compilation successful - no errors found")
+        print("✓ Parsing and semantic analysis successful")
+    
+    # Step 3: Generate intermediate code
+    print("\nStep 3: Generating Intermediate Code...")
+    print("-" * 30)
+    
+    intermediate_code, codegen_errors = compile_teslang_with_codegen(test_code)
+    
+    if codegen_errors:
+        print("Code generation errors:")
+        for error in codegen_errors:
+            print(error)
+    else:
+        print("✓ Code generation successful")
+        print("\nGenerated Intermediate Code:")
+        print("=" * 50)
+        print(intermediate_code)
+        print("=" * 50)
 
 def main_file():
+    """Handle file input"""
     if len(sys.argv) != 2:
         print("Usage: python main.py <input_file>")
         print("Or run without arguments to test the example code")
@@ -315,14 +326,50 @@ def main_file():
         print(f"Error reading file: {e}")
         sys.exit(1)
     
-    # Compile the code
+    print(f"TesLang Compiler - Processing: {input_file}")
+    print("=" * 50)
+    
+    # Step 1 & 2: Parse and perform semantic analysis
+    print("Step 1 & 2: Parsing and Semantic Analysis...")
     errors = compile_teslang(code)
     
     if errors:
+        print("Compilation errors found:")
+        print("-" * 30)
         for error in errors:
             print(error)
+        return
     else:
-        print("Compilation successful - no errors found")
+        print("✓ Parsing and semantic analysis successful")
+    
+    # Step 3: Generate intermediate code
+    print("\nStep 3: Generating Intermediate Code...")
+    print("-" * 30)
+    
+    intermediate_code, codegen_errors = compile_teslang_with_codegen(code)
+    
+    if codegen_errors:
+        print("Code generation errors:")
+        for error in codegen_errors:
+            print(error)
+    else:
+        print("✓ Code generation successful")
+        print("\nGenerated Intermediate Code:")
+        print("=" * 50)
+        print(intermediate_code)
+        print("=" * 50)
+        
+        # Optionally save to output file
+        output_file = input_file.replace('.tl', '.tsm').replace('.txt', '.tsm')
+        if output_file == input_file:
+            output_file = input_file + '.tsm'
+        
+        try:
+            with open(output_file, 'w', encoding='utf-8') as f:
+                f.write(intermediate_code)
+            print(f"\n✓ Intermediate code saved to: {output_file}")
+        except Exception as e:
+            print(f"\n⚠ Could not save output file: {e}")
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:
