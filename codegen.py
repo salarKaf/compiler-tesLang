@@ -13,18 +13,27 @@ class Register:
         self.current = 0
         self.max_used = 0
         self.reserved = {'r0'}  # r0 is reserved for return values
-    
+        
+        
     def allocate(self):
-        """Allocate a new register"""
-        self.current += 1
-        if self.current == 0:  # Skip r0 as it's reserved
-            self.current = 1
-        self.max_used = max(self.max_used, self.current)
-        return f"r{self.current}"
+        """Allocate a new register, skipping reserved ones"""
+        while True:
+            reg = f"r{self.current}"
+            self.current += 1
+            if reg not in self.reserved:
+                self.reserved.add(reg)  # Mark as used
+                self.max_used = max(self.max_used, int(reg[1:]))
+                return reg
+
     
     def get_current(self):
         """Get current register without allocating new one"""
         return f"r{self.current}"
+    
+    
+    def reserve(self, reg):
+        self.reserved.add(reg)
+
     
     def reset_temp(self):
         """Reset to a safe temporary register state"""
@@ -91,6 +100,8 @@ class CodeGenerator:
                 reg = f"r{i}"  # Parameters start from r0 in TSVM
                 self.function_params[param.name] = reg
                 param_comments.append(f"{param.name} => {reg}")
+                self.register_manager.reserve(reg)  # ❗ رزرو رجیستر پارامتر
+
             
             self.emit_comment(f" {', '.join(param_comments)}")
         
@@ -201,9 +212,8 @@ class CodeGenerator:
                 self.emit(f"call {node.name}, {result_reg}")
             
             return result_reg
-    
+        
     def visit_Return(self, node):
-        """Generate code for return statement"""
         if node.value:
             value_reg = self.visit(node.value)
             if value_reg != "r0":
@@ -211,6 +221,7 @@ class CodeGenerator:
         else:
             self.emit("mov r0, 0")
         self.emit("ret")
+
     
     def visit_BinaryOp(self, node):
         """Generate code for binary operations"""

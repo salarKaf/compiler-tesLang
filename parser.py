@@ -67,25 +67,45 @@ def p_type(p):
 
 def p_stmt_list(p):
     '''stmt_list : stmt_list statement
-                | statement'''
+                 | statement'''
     if len(p) == 2:
-        p[0] = [p[1]]
+        if isinstance(p[1], list):
+            p[0] = p[1]
+        else:
+            p[0] = [p[1]]
     else:
-        p[0] = p[1] + [p[2]]
+        if isinstance(p[2], list):
+            p[0] = p[1] + p[2]
+        else:
+            p[0] = p[1] + [p[2]]
+
 
 def p_statement(p):
     '''statement : var_declaration
-                | assignment
-                | function_call_stmt
-                | return_stmt
-                | if_stmt
-                | for_stmt
-                | while_stmt'''
-    p[0] = p[1]
+                 | assignment
+                 | function_call_stmt
+                 | return_stmt
+                 | if_stmt
+                 | for_stmt
+                 | while_stmt'''
+    if isinstance(p[1], list):
+        p[0] = p[1]  # برمی‌گردونه لیست استیتمنت‌ها (مثل decl + assign)
+    else:
+        p[0] = p[1]
+
 
 def p_var_declaration(p):
-    '''var_declaration : ID DBL_COLON type SEMI_COLON'''
-    p[0] = VarDeclaration(p[1], p[3], p.lineno(1))
+    '''var_declaration : ID DBL_COLON type SEMI_COLON
+                       | ID DBL_COLON type EQ expression SEMI_COLON'''
+    if len(p) == 5:
+        # فقط تعریف ساده
+        p[0] = VarDeclaration(p[1], p[3], p.lineno(1))
+    else:
+        # تعریف همراه مقداردهی
+        decl = VarDeclaration(p[1], p[3], p.lineno(1))
+        assign = Assignment(p[1], p[5], p.lineno(4))
+        p[0] = [decl, assign]
+
 
 def p_assignment(p):
     '''assignment : ID EQ expression SEMI_COLON

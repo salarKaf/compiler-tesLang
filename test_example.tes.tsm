@@ -1,0 +1,19 @@
+proc multiply
+# Parameters: a => r0, b => r1
+# Declare result in r2
+div r3, r0, r1
+mov r2, r3
+mov r0, r2
+ret
+
+proc main
+# Declare x in r1
+# Declare y in r2
+call iget, r3
+mov r1, r3
+call iget, r4
+mov r2, r4
+call multiply, r5, r1, r2
+call iput, r5
+mov r0, 0
+ret
