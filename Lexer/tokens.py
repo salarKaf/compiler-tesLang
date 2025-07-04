@@ -9,7 +9,7 @@ tokens = [
     'DBL_COLON', 'SEMI_COLON', 'COMMA',
     'LPAREN', 'RPAREN', 'LCURLYEBR', 'RCURLYEBR', 'LSQUAREBR', 'RSQUAREBR',
     'OR', 'AND', 'NOT',
-    'QMARK', 'COLON'
+    'QMARK', 'COLON' , 'ARROW'
 ]
 
 keywords = {
@@ -65,6 +65,7 @@ t_LCURLYEBR      = r'\{'
 t_RCURLYEBR      = r'\}'
 t_LSQUAREBR      = r'\['
 t_RSQUAREBR      = r'\]'
+t_ARROW          = r'=>'
 
 def t_ID(t):
     r'[a-zA-Z_][a-zA-Z0-9_]*'

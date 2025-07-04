@@ -1,4 +1,3 @@
-
 # parser.py
 """Parser for TesLang Compiler using PLY"""
 
@@ -45,12 +44,21 @@ def p_function_list(p):
         p[0] = p[1] + [p[2]]
 
 def p_function(p):
-    '''function : FUNK ID LPAREN param_list RPAREN LESS_THAN type GREATER_THAN LCURLYEBR stmt_list RCURLYEBR'''
-    p[0] = Function(p[2], p[4], p[7], p[10], p.lineno(1))
+    '''function : FUNK ID LPAREN param_list RPAREN LESS_THAN type GREATER_THAN LCURLYEBR stmt_list RCURLYEBR
+               | FUNK ID LPAREN RPAREN LESS_THAN type GREATER_THAN LCURLYEBR stmt_list RCURLYEBR
+               | FUNK ID LPAREN param_list RPAREN LESS_THAN type GREATER_THAN ARROW RETURN expression SEMI_COLON
+               | FUNK ID LPAREN RPAREN LESS_THAN type GREATER_THAN ARROW RETURN expression SEMI_COLON'''
+    if len(p) == 12:  # تابع با پارامتر و بدنه
+        p[0] = Function(p[2], p[4], p[7], p[10], p.lineno(1))
+    elif len(p) == 11:  # تابع بدون پارامتر و با بدنه
+        p[0] = Function(p[2], [], p[6], p[9], p.lineno(1))
+    elif len(p) == 13:  # تابع کوتاه با پارامتر
+        return_stmt = Return(p[11], p.lineno(10))
+        p[0] = Function(p[2], p[4], p[7], [return_stmt], p.lineno(1))
+    else:  # تابع کوتاه بدون پارامتر
+        return_stmt = Return(p[10], p.lineno(9))
+        p[0] = Function(p[2], [], p[6], [return_stmt], p.lineno(1))
 
-def p_function_no_params(p):
-    '''function : FUNK ID LPAREN RPAREN LESS_THAN type GREATER_THAN LCURLYEBR stmt_list RCURLYEBR'''
-    p[0] = Function(p[2], [], p[6], p[9], p.lineno(1))
 
 def p_param_list(p):
     '''param_list : param_list COMMA parameter
@@ -75,8 +83,11 @@ def p_type(p):
 
 def p_stmt_list(p):
     '''stmt_list : stmt_list statement
-                 | statement'''
-    if len(p) == 2:
+                 | statement
+                 | empty'''
+    if p[1] is None:
+        p[0] = []
+    elif len(p) == 2:
         if isinstance(p[1], list):
             p[0] = p[1]
         else:
@@ -88,6 +99,7 @@ def p_stmt_list(p):
             p[0] = p[1] + [p[2]]
 
 
+
 def p_statement(p):
     '''statement : var_declaration
                  | assignment
@@ -95,21 +107,26 @@ def p_statement(p):
                  | return_stmt
                  | if_stmt
                  | for_stmt
-                 | while_stmt'''
+                 | while_stmt
+                 | do_while_stmt
+                 | block_stmt
+                 | function'''
     if isinstance(p[1], list):
-        p[0] = p[1]  # برمی‌گردونه لیست استیتمنت‌ها (مثل decl + assign)
+        p[0] = p[1]
     else:
         p[0] = p[1]
+        
+
+
+
 
 
 def p_var_declaration(p):
     '''var_declaration : ID DBL_COLON type SEMI_COLON
                        | ID DBL_COLON type EQ expression SEMI_COLON'''
     if len(p) == 5:
-        # فقط تعریف ساده
         p[0] = VarDeclaration(p[1], p[3], p.lineno(1))
     else:
-        # تعریف همراه مقداردهی
         decl = VarDeclaration(p[1], p[3], p.lineno(1))
         assign = Assignment(p[1], p[5], p.lineno(4))
         p[0] = [decl, assign]
@@ -132,11 +149,15 @@ def p_function_call(p):
     '''function_call : ID LPAREN arg_list RPAREN
                     | ID LPAREN RPAREN
                     | PRINT LPAREN arg_list RPAREN
-                    | PRINT LPAREN RPAREN'''
+                    | PRINT LPAREN RPAREN
+                    | LEN LPAREN expression RPAREN'''
     if len(p) == 4:
         p[0] = FunctionCall(p[1], [], p.lineno(1))
     else:
-        p[0] = FunctionCall(p[1], p[3], p.lineno(1))
+        if p[1] == 'length':
+            p[0] = FunctionCall('length', [p[3]], p.lineno(1))
+        else:
+            p[0] = FunctionCall(p[1], p[3], p.lineno(1))
 
 def p_arg_list(p):
     '''arg_list : arg_list COMMA expression
@@ -155,24 +176,32 @@ def p_return_stmt(p):
         p[0] = Return(p[2], p.lineno(1))
 
 def p_if_stmt(p):
-    '''if_stmt : IF LSQUAREBR LSQUAREBR expression RSQUAREBR RSQUAREBR BEGIN stmt_list END
-              | IF LSQUAREBR LSQUAREBR expression RSQUAREBR RSQUAREBR BEGIN stmt_list END ELSE BEGIN stmt_list END'''
-    if len(p) == 10:
-        p[0] = If(p[4], p[8], None, p.lineno(1))
+    '''if_stmt : IF LSQUAREBR LSQUAREBR expression RSQUAREBR RSQUAREBR statement
+              | IF LSQUAREBR LSQUAREBR expression RSQUAREBR RSQUAREBR statement ELSE statement'''
+    if len(p) == 8:
+        p[0] = If(p[4], p[7], None, p.lineno(1))
     else:
-        p[0] = If(p[4], p[8], p[12], p.lineno(1))
+        p[0] = If(p[4], p[7], p[9], p.lineno(1))
 
 def p_for_stmt(p):
     '''for_stmt : FOR LPAREN ID EQ expression TO expression RPAREN BEGIN stmt_list END'''
     p[0] = For(p[3], p[5], p[7], p[10], p.lineno(1))
 
+
 def p_while_stmt(p):
-    '''while_stmt : WHILE LPAREN expression RPAREN BEGIN stmt_list END
-                 | WHILE LPAREN expression RPAREN DO BEGIN stmt_list END'''
-    if len(p) == 8:
-        p[0] = While(p[3], p[6], p.lineno(1))
-    else:
-        p[0] = While(p[3], p[7], p.lineno(1))
+    '''while_stmt : WHILE LSQUAREBR LSQUAREBR expression RSQUAREBR RSQUAREBR statement'''
+    p[0] = While(p[4], p[7], p.lineno(1))
+
+def p_do_while_stmt(p):
+    '''do_while_stmt : DO statement WHILE LSQUAREBR LSQUAREBR expression RSQUAREBR RSQUAREBR'''
+    p[0] = DoWhile(p[2], p[6], p.lineno(1))
+
+def p_block_stmt(p):
+    '''block_stmt : BEGIN stmt_list END'''
+    p[0] = Block(p[2], p.lineno(1))
+    
+
+
 
 def p_expression_binop(p):
     '''expression : expression PLUS expression
@@ -191,12 +220,25 @@ def p_expression_binop(p):
 
 def p_expression_unary(p):
     '''expression : NOT expression
-                 | MINUS expression %prec UMINUS'''
+                 | MINUS expression %prec UMINUS
+                 | PLUS expression %prec UPLUS'''
     p[0] = UnaryOp(p[1], p[2], p.lineno(1))
+
+def p_expression_ternary(p):
+    '''expression : expression QMARK expression COLON expression'''
+    p[0] = TernaryOp(p[1], p[3], p[5], p.lineno(2))
 
 def p_expression_group(p):
     '''expression : LPAREN expression RPAREN'''
     p[0] = p[2]
+
+def p_expression_array_literal(p):
+    '''expression : LSQUAREBR arg_list RSQUAREBR
+                 | LSQUAREBR RSQUAREBR'''
+    if len(p) == 3:
+        p[0] = ArrayLiteral([], p.lineno(1))
+    else:
+        p[0] = ArrayLiteral(p[2], p.lineno(1))
 
 def p_expression_number(p):
     '''expression : NUMBER'''
@@ -224,24 +266,13 @@ def p_expression_function_call(p):
     '''expression : function_call'''
     p[0] = p[1]
 
-def p_expression_list_call(p):
-    '''expression : ID LPAREN expression RPAREN'''
-    if p[1] == 'list':
-        p[0] = ListCall(p[3], p.lineno(1))
-    elif p[1] == 'print':
-        p[0] = FunctionCall(p[1], [p[3]], p.lineno(1))
-    else:
-        p[0] = FunctionCall(p[1], [p[3]], p.lineno(1))
-
-def p_expression_length(p):
-    '''expression : LEN LPAREN expression RPAREN'''
-    p[0] = FunctionCall('length', [p[3]], p.lineno(1))
-
-def p_expression_ternary(p):
-    '''expression : expression QMARK expression COLON expression'''
-    p[0] = TernaryOp(p[1], p[3], p[5], p.lineno(2))
+    
+def p_empty(p):
+    '''empty :'''
+    pass
 
 # Precedence and associativity
+# اولویت عملگرها
 precedence = (
     ('left', 'OR'),
     ('left', 'AND'),
@@ -249,7 +280,8 @@ precedence = (
     ('left', 'LESS_THAN', 'GREATER_THAN', 'LTEQ', 'GTEQ'),
     ('left', 'PLUS', 'MINUS'),
     ('left', 'MULTIPLY', 'DIVIDE'),
-    ('right', 'UMINUS', 'NOT'),
+    ('right', 'UMINUS', 'UPLUS', 'NOT'),
+    ('right', 'QMARK', 'COLON'),
 )
 
 def p_error(p):

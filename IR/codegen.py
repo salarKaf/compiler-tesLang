@@ -235,6 +235,7 @@ class CodeGenerator:
         
     def visit_Return(self, node):
         """Generate code for return statement"""
+        
         if node.value:
             value_reg = self.visit(node.value)
             # Always move the return value to r0 if it's not already there
