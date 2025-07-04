@@ -1,0 +1,48 @@
+TesLang AST Output for: Ir.tes
+==================================================
+
+└── Program(functions=2)
+    ├── functions[0]:
+        └── Function(add, int) 'add'
+            ├── params[0]:
+                └── Parameter(a: int) 'a'
+            ├── params[1]:
+                └── Parameter(b: int) 'b'
+            └── body[0]:
+                └── Return(True) = BinaryOp(+)
+                    └── value:
+                        └── BinaryOp(+) '+'
+                            ├── left:
+                                └── Identifier(a) 'a'
+                            └── right:
+                                └── Identifier(b) 'b'
+    └── functions[1]:
+        └── Function(main, null) 'main'
+            ├── body[0]:
+                └── VarDeclaration(a: int) 'a'
+            ├── body[1]:
+                └── VarDeclaration(b: int) 'b'
+            ├── body[2]:
+                └── Assignment(a) = FunctionCall(scan, 0 args)
+                    └── value:
+                        └── FunctionCall(scan, 0 args) 'scan'
+            ├── body[3]:
+                └── Assignment(b) = FunctionCall(scan, 0 args)
+                    └── value:
+                        └── FunctionCall(scan, 0 args) 'scan'
+            ├── body[4]:
+                └── VarDeclaration(x: int) 'x'
+            ├── body[5]:
+                └── Assignment(x) = FunctionCall(add, 2 args)
+                    └── value:
+                        └── FunctionCall(add, 2 args) 'add'
+                            ├── args[0]:
+                                └── Identifier(a) 'a'
+                            └── args[1]:
+                                └── Identifier(b) 'b'
+            ├── body[6]:
+                └── FunctionCall(print, 1 args) 'print'
+                    └── args[0]:
+                        └── Identifier(x) 'x'
+            └── body[7]:
+                └── Return(False)
