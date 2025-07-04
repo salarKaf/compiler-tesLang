@@ -1,0 +1,112 @@
+TesLang AST Output for: test_example.tes
+==================================================
+
+└── Program(functions=2)
+    ├── functions[0]:
+        └── Function(find, vector) 'find'
+            ├── params[0]:
+                └── Parameter(A: vector) 'A'
+            ├── params[1]:
+                └── Parameter(n: int) 'n'
+            ├── body[0]:
+                └── VarDeclaration(k: int) 'k'
+            ├── body[1]:
+                └── VarDeclaration(j: int) 'j'
+            ├── body[2]:
+                └── For(i)
+                    ├── start:
+                        └── Number(0) = 0
+                    ├── end:
+                        └── FunctionCall(length, 1 args) 'length'
+                            └── args[0]:
+                                └── Identifier(A) 'A'
+                    ├── body[0]:
+                        └── If(has_else=False)
+                            ├── condition:
+                                └── BinaryOp(==) '=='
+                                    ├── left:
+                                        └── Identifier(n) 'n'
+                                    └── right:
+                                        └── Identifier(k) 'k'
+                            └── then_stmt:
+                                └── Block(1 statements)
+                                    └── statements[0]:
+                                        └── Return(True) = Identifier(j)
+                                            └── value:
+                                                └── Identifier(j) 'j'
+                    └── body[1]:
+                        └── Assignment(j) = BinaryOp(+)
+                            └── value:
+                                └── BinaryOp(+) '+'
+                                    ├── left:
+                                        └── Identifier(x) 'x'
+                                    └── right:
+                                        └── Number(1) = 1
+            └── body[3]:
+                └── Return(True) = UnaryOp(-)
+                    └── value:
+                        └── UnaryOp(-) '-'
+                            └── operand:
+                                └── Number(1) = 1
+    └── functions[1]:
+        └── Function(main, null) 'main'
+            ├── body[0]:
+                └── VarDeclaration(A: int) 'A'
+            ├── body[1]:
+                └── VarDeclaration(a: int) 'a'
+            ├── body[2]:
+                └── Assignment(A) = FunctionCall(list, 1 args)
+                    └── value:
+                        └── FunctionCall(list, 1 args) 'list'
+                            └── args[0]:
+                                └── Number(3) = 3
+            ├── body[3]:
+                └── Assignment(ArrayAccess(A)) = Number(1)
+                    ├── target:
+                        └── ArrayAccess(A)
+                            └── index:
+                                └── Number(0) = 0
+                    └── value:
+                        └── Number(1) = 1
+            ├── body[4]:
+                └── Assignment(ArrayAccess(A)) = Number(2)
+                    ├── target:
+                        └── ArrayAccess(A)
+                            └── index:
+                                └── Number(1) = 1
+                    └── value:
+                        └── Number(2) = 2
+            ├── body[5]:
+                └── Assignment(ArrayAccess(A)) = Number(3)
+                    ├── target:
+                        └── ArrayAccess(A)
+                            └── index:
+                                └── Number(2) = 2
+                    └── value:
+                        └── Number(3) = 3
+            ├── body[6]:
+                └── FunctionCall(print, 1 args) 'print'
+                    └── args[0]:
+                        └── FunctionCall(find, 2 args) 'find'
+                            ├── args[0]:
+                                └── Identifier(A) 'A'
+                            └── args[1]:
+                                └── Identifier(a) 'a'
+            ├── body[7]:
+                └── FunctionCall(print, 1 args) 'print'
+                    └── args[0]:
+                        └── FunctionCall(find, 1 args) 'find'
+                            └── args[0]:
+                                └── Identifier(A) 'A'
+            ├── body[8]:
+                └── FunctionCall(print, 1 args) 'print'
+                    └── args[0]:
+                        └── FunctionCall(find, 2 args) 'find'
+                            ├── args[0]:
+                                └── Identifier(a) 'a'
+                            └── args[1]:
+                                └── Identifier(A) 'A'
+            └── body[9]:
+                └── Return(True) = Identifier(A)
+                    └── value:
+                        └── Identifier(A) 'A'
