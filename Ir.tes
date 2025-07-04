@@ -1,14 +1,15 @@
-funk add(a as int, b as int) <int> => return a + b;
-
-
-funk main() <null>
-{
-    a :: int;
-    b :: int;
-    
-    a = scan();
-    b = scan();
-    x :: int = add ( a, b);
-    print (x);
-    return ;
+funk main() <null> {
+    x :: int;
+    i :: int;
+    x = 5;
+    for (i = 0 to x)
+        begin
+            print(i);
+            if [[i > 2]]
+                begin
+                    print(1);
+                end
+            else
+                print(85);    
+        end
 }

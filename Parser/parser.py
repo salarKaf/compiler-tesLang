@@ -1,5 +1,5 @@
 # parser.py
-"""Parser for TesLang Compiler using PLY"""
+"""Parser for TesLang Compiler using PLY - Fixed for Nested Functions"""
 
 import ply.yacc as yacc
 try:
@@ -13,15 +13,15 @@ import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-
 from SemanticAnalyzerF.symbol_table import SymbolTable, Symbol
 from SemanticAnalyzerF.semantic_analyzer import SemanticAnalyzer
 
-
 # Global variables for parsing
 symbol_table = None
-current_function = None
+function_context_stack = []  # Stack to track nested function contexts
 errors = []
+current_function_name = None
+
 
 def add_error(message, line=None):
     """Add a parsing error"""
@@ -29,6 +29,25 @@ def add_error(message, line=None):
         errors.append(f"Line {line}: {message}")
     else:
         errors.append(message)
+
+def push_function_context(function_name):
+    """Push a new function context onto the stack"""
+    function_context_stack.append(function_name)
+
+def pop_function_context():
+    """Pop the current function context from the stack"""
+    if function_context_stack:
+        return function_context_stack.pop()
+    return None
+
+def get_current_function():
+    """Get the current function context"""
+    return function_context_stack[-1] if function_context_stack else None
+
+def is_inside_function():
+    """Check if we're currently inside a function"""
+    global current_function_name
+    return current_function_name is not None
 
 # Grammar Rules
 def p_program(p):
@@ -48,6 +67,11 @@ def p_function(p):
                | FUNK ID LPAREN RPAREN LESS_THAN type GREATER_THAN LCURLYEBR stmt_list RCURLYEBR
                | FUNK ID LPAREN param_list RPAREN LESS_THAN type GREATER_THAN ARROW RETURN expression SEMI_COLON
                | FUNK ID LPAREN RPAREN LESS_THAN type GREATER_THAN ARROW RETURN expression SEMI_COLON'''
+    
+    global current_function_name
+    old_function = current_function_name
+    current_function_name = p[2]
+    
     if len(p) == 12:  # تابع با پارامتر و بدنه
         p[0] = Function(p[2], p[4], p[7], p[10], p.lineno(1))
     elif len(p) == 11:  # تابع بدون پارامتر و با بدنه
@@ -58,7 +82,8 @@ def p_function(p):
     else:  # تابع کوتاه بدون پارامتر
         return_stmt = Return(p[10], p.lineno(9))
         p[0] = Function(p[2], [], p[6], [return_stmt], p.lineno(1))
-
+    
+    current_function_name = old_function
 
 def p_param_list(p):
     '''param_list : param_list COMMA parameter
@@ -85,6 +110,10 @@ def p_stmt_list(p):
     '''stmt_list : stmt_list statement
                  | statement
                  | empty'''
+    # اگر داخل تابع نیستیم و statement یک Function است، context را مدیریت کنیم
+    if len(p) == 2 and hasattr(p[1], '__class__') and p[1].__class__.__name__ == 'Function':
+        push_function_context(p[1].name)
+        
     if p[1] is None:
         p[0] = []
     elif len(p) == 2:
@@ -97,8 +126,6 @@ def p_stmt_list(p):
             p[0] = p[1] + p[2]
         else:
             p[0] = p[1] + [p[2]]
-
-
 
 def p_statement(p):
     '''statement : var_declaration
@@ -115,11 +142,6 @@ def p_statement(p):
         p[0] = p[1]
     else:
         p[0] = p[1]
-        
-
-
-
-
 
 def p_var_declaration(p):
     '''var_declaration : ID DBL_COLON type SEMI_COLON
@@ -130,7 +152,6 @@ def p_var_declaration(p):
         decl = VarDeclaration(p[1], p[3], p.lineno(1))
         assign = Assignment(p[1], p[5], p.lineno(4))
         p[0] = [decl, assign]
-
 
 def p_assignment(p):
     '''assignment : ID EQ expression SEMI_COLON
@@ -170,6 +191,8 @@ def p_arg_list(p):
 def p_return_stmt(p):
     '''return_stmt : RETURN expression SEMI_COLON
                   | RETURN SEMI_COLON'''
+    
+    # Don't check function context here - let semantic analyzer handle it
     if len(p) == 3:
         p[0] = Return(None, p.lineno(1))
     else:
@@ -199,9 +222,6 @@ def p_do_while_stmt(p):
 def p_block_stmt(p):
     '''block_stmt : BEGIN stmt_list END'''
     p[0] = Block(p[2], p.lineno(1))
-    
-
-
 
 def p_expression_binop(p):
     '''expression : expression PLUS expression
@@ -266,13 +286,11 @@ def p_expression_function_call(p):
     '''expression : function_call'''
     p[0] = p[1]
 
-    
 def p_empty(p):
     '''empty :'''
     pass
 
 # Precedence and associativity
-# اولویت عملگرها
 precedence = (
     ('left', 'OR'),
     ('left', 'AND'),
@@ -286,30 +304,35 @@ precedence = (
 
 def p_error(p):
     if p:
-        msg = f"Syntax error near '{p.value}' (token: {p.type})"
+        msg = f"Line {p.lineno}: Syntax error near '{p.value}' (token: {p.type})"
+
         if p.type == 'ID':
-            msg += " — unexpected identifier"
-            if p.lineno > 1:
-                msg += f" — did you forget a semicolon on the previous line?"
+            lowercase_keywords = ['begin', 'end', 'if', 'else', 'while', 'do', 'for', 'return']
+            if p.value.lower() in lowercase_keywords and p.value != p.value.lower():
+                msg += f" — did you mean '{p.value.lower()}'? Keywords must be lowercase"
+            else:
+                msg += " — unexpected identifier"
+                if p.lineno > 1:
+                    msg += " — possible missing semicolon on the previous line"
+
         elif p.type == 'LCURLYEBR':
             msg += " — did you mean to use 'begin' instead of '{'?"
         elif p.type == 'LPAREN':
             msg += " — maybe you're missing [[ ]] for conditions?"
+
         add_error(msg, p.lineno)
     else:
         add_error("Syntax error: unexpected end of file")
 
-
-
 # Main compiler function
 def compile_teslang(code):
     """Main function to compile TesLang code"""
-    global symbol_table, current_function, errors
-    
+    global symbol_table, function_context_stack, errors, current_function_name    
     # Reset global state
     symbol_table = SymbolTable()
-    current_function = None
+    function_context_stack = []
     errors = []
+    current_function_name = None
     
     # Build parser
     parser = yacc.yacc()
@@ -324,7 +347,9 @@ def compile_teslang(code):
         analyzer = SemanticAnalyzer()
         semantic_errors = analyzer.analyze(ast)
         
-        return semantic_errors
+        # Combine parsing and semantic errors
+        all_errors = errors + semantic_errors
+        return all_errors
         
     except Exception as e:
         errors.append(f"Parser error: {str(e)}")
@@ -332,12 +357,12 @@ def compile_teslang(code):
 
 def parse_code(code):
     """Parse code and return AST (without semantic analysis)"""
-    global symbol_table, current_function, errors
-    
+    global symbol_table, function_context_stack, errors, current_function_name    
     # Reset global state
     symbol_table = SymbolTable()
-    current_function = None
+    function_context_stack = []
     errors = []
+    current_function_name = None
     
     # Build parser
     parser = yacc.yacc()

@@ -53,11 +53,11 @@ class SemanticAnalyzer:
         # Second pass: analyze function bodies
         for func in node.functions:
             self.visit_Function(func)
-
+            
+            
     def visit_Function(self, node):
-        """Visit a function node"""
         self.current_function = node
-        
+
         # Create new scope for function
         func_scope = SymbolTable(self.symbol_table)
         old_table = self.symbol_table
@@ -68,13 +68,20 @@ class SemanticAnalyzer:
             symbol = Symbol(param.name, 'variable', param.param_type, initialized=True, line=param.line)
             self.symbol_table.insert(param.name, symbol)
 
-        # Analyze function body
-        for stmt in node.body:
-            self.visit(stmt)
+        # Handle function body safely (Block or list or single)
+        if hasattr(node.body, 'statements'):
+            for stmt in node.body.statements:
+                self.visit(stmt)
+        elif isinstance(node.body, list):
+            for stmt in node.body:
+                self.visit(stmt)
+        else:
+            self.visit(node.body)
 
         # Restore previous scope
         self.symbol_table = old_table
         self.current_function = None
+
 
     def visit_VarDeclaration(self, node):
         """Visit a variable declaration node"""
@@ -174,6 +181,43 @@ class SemanticAnalyzer:
                 f"function '{self.current_function.name}': wrong return type. expected '{expected_type}' but got '{actual_type}'",
                 node.line
             )
+            
+    def visit_For(self, node):
+        """Visit a for loop"""
+        # بررسی وجود متغیر حلقه در جدول نمادها
+        var_symbol = self.symbol_table.lookup(node.var)
+        if not var_symbol:
+            # اگر متغیر هنوز تعریف نشده، تعریفش کن
+            symbol = Symbol(node.var, 'variable', 'int', initialized=True, line=node.line)
+            self.symbol_table.insert(node.var, symbol)
+        else:
+            # اگر از قبل تعریف شده، علامت‌گذاری به عنوان مقداردهی‌شده
+            var_symbol.initialized = True
+
+        # بررسی start و end expression ها
+        self.visit(node.start)
+        self.visit(node.end)
+
+        # بررسی نوع start و end
+        start_type = self.get_expression_type(node.start)
+        end_type = self.get_expression_type(node.end)
+
+        if start_type != 'int' or end_type != 'int':
+            self.add_error(f"function '{self.current_function.name}': loop range must be of type 'int'", node.line)
+
+        # بررسی بدنه حلقه
+        if hasattr(node.body, 'statements'):
+            # اگر بدنه از نوع Block است
+            for stmt in node.body.statements:
+                self.visit(stmt)
+        elif isinstance(node.body, list):
+            # اگر بدنه لیست استیتمنت‌هاست
+            for stmt in node.body:
+                self.visit(stmt)
+        else:
+            # فقط یک استیتمنت ساده
+            self.visit(node.body)
+
 
     def visit_Identifier(self, node):
         """Visit an identifier node"""

@@ -169,9 +169,10 @@ class DoWhile(ASTNode):
         self.body = body
         self.condition = condition
         self.line = line
-    
+
     def __str__(self):
-        return "DoWhile"
+        return f"DoWhile (line {self.line})"
+
 
 class Block(ASTNode):
     def __init__(self, statements, line):
