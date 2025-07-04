@@ -1,0 +1,35 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Cython debug symbols
+cython_debug/
+
+# Compiled parser tables (PLY)
+parser.out
+parsetab.py
+parsetab.pyc
+
+# Virtual environments
+.env/
+.venv/
+env/
+venv/
+
+# Editor files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Compiled test outputs
+*.tsm
+*.out
+
+# Logs
+*.log

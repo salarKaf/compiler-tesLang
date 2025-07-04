@@ -1,19 +1,19 @@
-funk add(a as int, b as int) <int> 
-{ 
-    result :: int ;
-    result = a + b ;
-    return result ;
-} 
+funk main() <null> {
 
-funk main() <null> 
-{ 
-    a :: int; 
-    b :: int; 
+    a :: int = 5
+    b :: int = 3;
 
-    a = scan(); 
-    b = scan(); 
+    if [[ a > 3 && b < 4 ]] begin
+        print(100);
+    end
 
-    print(add(a, b)) ;
+    if [[ a < 2 || b < 10 ]] begin
+        print(200);
+    end
 
-    return; 
+    if [[ a < 2 && b < 10 ]] begin
+        print(999);
+    end
+
+    return;
 }

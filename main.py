@@ -7,8 +7,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 try:
     from Lexer import lexer
-    from parser import compile_teslang
-    from codegen import compile_teslang_with_codegen
+    from Parser.parser import compile_teslang
+    from IR.codegen import compile_teslang_with_codegen
 except ImportError as e:
     print(f"Import error: {e}")
     print("Make sure all files are in the correct directory structure")

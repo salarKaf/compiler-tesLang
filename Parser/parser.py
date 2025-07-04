@@ -1,3 +1,4 @@
+
 # parser.py
 """Parser for TesLang Compiler using PLY"""
 
@@ -7,9 +8,16 @@ try:
 except ImportError:
     from tokens import tokens
 
-from ast_nodes import *
-from symbol_table import SymbolTable, Symbol
-from semantic_analyzer import SemanticAnalyzer
+from Parser.ast_nodes import *
+
+import sys
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+
+from SemanticAnalyzerF.symbol_table import SymbolTable, Symbol
+from SemanticAnalyzerF.semantic_analyzer import SemanticAnalyzer
+
 
 # Global variables for parsing
 symbol_table = None
@@ -245,11 +253,21 @@ precedence = (
 )
 
 def p_error(p):
-    """Handle parsing errors"""
     if p:
-        add_error(f"Syntax error at token {p.type}", p.lineno)
+        msg = f"Syntax error near '{p.value}' (token: {p.type})"
+        if p.type == 'ID':
+            msg += " — unexpected identifier"
+            if p.lineno > 1:
+                msg += f" — did you forget a semicolon on the previous line?"
+        elif p.type == 'LCURLYEBR':
+            msg += " — did you mean to use 'begin' instead of '{'?"
+        elif p.type == 'LPAREN':
+            msg += " — maybe you're missing [[ ]] for conditions?"
+        add_error(msg, p.lineno)
     else:
-        add_error("Syntax error at EOF")
+        add_error("Syntax error: unexpected end of file")
+
+
 
 # Main compiler function
 def compile_teslang(code):

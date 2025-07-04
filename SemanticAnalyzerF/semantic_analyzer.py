@@ -1,8 +1,9 @@
 # semantic_analyzer.py
 """Semantic Analyzer for TesLang Compiler"""
 
-from symbol_table import SymbolTable, Symbol
-from ast_nodes import *
+
+from SemanticAnalyzerF.symbol_table import SymbolTable, Symbol
+from Parser.ast_nodes import *
 
 class SemanticAnalyzer:
     """Performs semantic analysis on the AST"""

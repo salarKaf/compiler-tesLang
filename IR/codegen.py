@@ -4,7 +4,7 @@ TesLang Compiler - Step 3: Code Generation (Fixed for TSVM)
 Generates intermediate code for tsvm virtual machine
 """
 
-from parser import *
+from Parser.parser import *
 import sys
 
 class Register:
@@ -38,6 +38,7 @@ class Register:
     def reset_temp(self):
         """Reset to a safe temporary register state"""
         self.current = 0
+        self.reserved = {'r0'}  # Keep only r0 reserved
 
 class CodeGenerator:
     def __init__(self):
@@ -97,13 +98,14 @@ class CodeGenerator:
         if node.params:
             param_comments = []
             for i, param in enumerate(node.params):
-                reg = f"r{i}"  # Parameters start from r0 in TSVM
+                reg = f"r{i + 1}"  # ✅ use r1, r2, r3 for arguments
                 self.function_params[param.name] = reg
                 param_comments.append(f"{param.name} => {reg}")
-                self.register_manager.reserve(reg)  # ❗ رزرو رجیستر پارامتر
+                self.register_manager.reserve(reg)
+                self.register_manager.current = max(self.register_manager.current, i + 2)
 
             
-            self.emit_comment(f" {', '.join(param_comments)}")
+            self.emit_comment(f"Parameters: {', '.join(param_comments)}")
         
         # Generate code for function body
         for stmt in node.body:
@@ -119,11 +121,18 @@ class CodeGenerator:
     
     def visit_VarDeclaration(self, node):
         """Generate code for variable declaration"""
-        # Allocate a register for the variable
-        if node.name not in self.function_vars:
+        # Only allocate a register if the variable doesn't already exist
+        if node.name not in self.function_vars and node.name not in self.function_params:
             reg = self.register_manager.allocate()
             self.function_vars[node.name] = reg
-            self.emit_comment(f" declare {node.name} in {reg}")
+            self.emit_comment(f"Declare {node.name} in {reg}")
+        else:
+            # Variable already exists (either as parameter or previously declared)
+            if node.name in self.function_params:
+                reg = self.function_params[node.name]
+            else:
+                reg = self.function_vars[node.name]
+            self.emit_comment(f"Variable {node.name} already in {reg}")
     
     def visit_Assignment(self, node):
         """Generate code for assignment"""
@@ -158,7 +167,13 @@ class CodeGenerator:
                 array_reg = self.register_manager.allocate()
                 self.function_vars[array_name] = array_reg
             
-            self.emit(f"st {value_reg}, {array_reg}") # Fixed: using st instead of store
+            # Calculate memory address: array_base + index * 4 (assuming 4 bytes per element)
+            addr_reg = self.register_manager.allocate()
+            four_reg = self.register_manager.allocate()
+            self.emit(f"mov {four_reg}, 4")
+            self.emit(f"mul {addr_reg}, {index_reg}, {four_reg}")
+            self.emit(f"add {addr_reg}, {array_reg}, {addr_reg}")
+            self.emit(f"st {value_reg}, {addr_reg}")
     
     def visit_FunctionCall(self, node):
         """Generate code for function call"""
@@ -180,7 +195,12 @@ class CodeGenerator:
             if node.args:
                 size_reg = self.visit(node.args[0])
                 result_reg = self.register_manager.allocate()
-                self.emit(f"call mem, {result_reg}, {size_reg}")
+                # Multiply size by 4 to get bytes (assuming 4 bytes per element)
+                four_reg = self.register_manager.allocate()
+                bytes_reg = self.register_manager.allocate()
+                self.emit(f"mov {four_reg}, 4")
+                self.emit(f"mul {bytes_reg}, {size_reg}, {four_reg}")
+                self.emit(f"call mem, {result_reg}, {bytes_reg}")
                 return result_reg
             return None
         
@@ -214,11 +234,14 @@ class CodeGenerator:
             return result_reg
         
     def visit_Return(self, node):
+        """Generate code for return statement"""
         if node.value:
             value_reg = self.visit(node.value)
+            # Always move the return value to r0 if it's not already there
             if value_reg != "r0":
                 self.emit(f"mov r0, {value_reg}")
         else:
+            # No return value, set r0 to 0
             self.emit("mov r0, 0")
         self.emit("ret")
 
@@ -321,8 +344,15 @@ class CodeGenerator:
             array_reg = self.register_manager.allocate()
             self.function_vars[array_name] = array_reg
         
+        # Calculate memory address: array_base + index * 4 (assuming 4 bytes per element)
+        addr_reg = self.register_manager.allocate()
+        four_reg = self.register_manager.allocate()
         result_reg = self.register_manager.allocate()
-        self.emit(f"ld {result_reg}, {array_reg}") # Fixed: using ld instead of load
+        
+        self.emit(f"mov {four_reg}, 4")
+        self.emit(f"mul {addr_reg}, {index_reg}, {four_reg}")
+        self.emit(f"add {addr_reg}, {array_reg}, {addr_reg}")
+        self.emit(f"ld {result_reg}, {addr_reg}")
         return result_reg
     
     def visit_If(self, node):
@@ -477,3 +507,6 @@ funk main() <int>
         print("Generated Intermediate Code:")
         print("-" * 30)
         print(intermediate_code)
+        print("-" * 30)
+        print("Expected behavior: Input 7, 7 -> Output 14")
+        print("If getting 0 or 7, check register allocation logic")
