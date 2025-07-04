@@ -54,8 +54,8 @@ class SemanticAnalyzer:
         for func in node.functions:
             self.visit_Function(func)
             
-            
     def visit_Function(self, node):
+        old_function = self.current_function
         self.current_function = node
 
         # Create new scope for function
@@ -67,6 +67,15 @@ class SemanticAnalyzer:
         for param in node.params:
             symbol = Symbol(param.name, 'variable', param.param_type, initialized=True, line=param.line)
             self.symbol_table.insert(param.name, symbol)
+
+        # اضافه کردن این قسمت برای nested functions
+        # First pass: collect nested function declarations
+        for stmt in (node.body.statements if hasattr(node.body, 'statements') else 
+                    (node.body if isinstance(node.body, list) else [node.body])):
+            if isinstance(stmt, Function):
+                params = [(p.name, p.param_type) for p in stmt.params]
+                symbol = Symbol(stmt.name, 'function', params=params, return_type=stmt.return_type, line=stmt.line)
+                self.symbol_table.insert(stmt.name, symbol)
 
         # Handle function body safely (Block or list or single)
         if hasattr(node.body, 'statements'):
@@ -80,7 +89,7 @@ class SemanticAnalyzer:
 
         # Restore previous scope
         self.symbol_table = old_table
-        self.current_function = None
+        self.current_function = old_function
 
 
     def visit_VarDeclaration(self, node):

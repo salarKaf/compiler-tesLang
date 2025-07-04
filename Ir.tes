@@ -1,15 +1,10 @@
-funk main() <null> {
-    x :: int;
-    i :: int;
-    x = 5;
-    for (i = 0 to x)
-        begin
-            print(i);
-            if [[i > 2]]
-                begin
-                    print(1);
-                end
-            else
-                print(85);    
-        end
+funk main() <null>  
+{ 
+    funk testFunc2() <null> 
+    { 
+        x::int=4;
+        print(x);
+        return; 
+    } 
+    return testFunc2(); 
 }
