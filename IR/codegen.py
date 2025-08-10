@@ -62,20 +62,33 @@ class CodeGenerator:
         visitor = getattr(self, method_name, self.generic_visit)
         return visitor(node)
 
-    def generic_visit(self, node):
-        pass
-
     def visit_Program(self, node):
-        for function in node.functions:
+        """Visit program and collect all functions including nested ones"""
+        all_functions = []
+        self.collect_all_functions(node.functions, all_functions)
+        
+        # پردازش همه توابع
+        for function in all_functions:
             self.visit(function)
 
+    def collect_all_functions(self, functions, result):
+        """Recursively collect all functions including nested ones"""
+        for func in functions:
+            result.append(func)
+            # جمع‌آوری توابع تودرتو
+            for stmt in self.extract_statements(func.body):
+                if hasattr(stmt, '__class__') and stmt.__class__.__name__ == 'Function':
+                    self.collect_all_functions([stmt], result)
+
     def visit_Function(self, node):
+        """Visit function - handle nested functions properly"""
         self.current_function = node.name
         self.function_vars = {}
         self.function_params = {}
         self.register_manager.reset_temp()
         self.emit(f"proc {node.name}")
 
+        # پردازش پارامترها
         if node.params:
             param_comments = []
             for i, param in enumerate(node.params):
@@ -86,11 +99,17 @@ class CodeGenerator:
                 self.register_manager.current = max(self.register_manager.current, i + 2)
             self.emit_comment(f"Parameters: {', '.join(param_comments)}")
 
+        # پردازش body - جدا کردن nested functions
+        nested_functions = []
         for stmt in self.extract_statements(node.body):
-            self.visit(stmt)
+            if hasattr(stmt, '__class__') and stmt.__class__.__name__ == 'Function':
+                nested_functions.append(stmt)
+            else:
+                self.visit(stmt)
 
+        # اضافه کردن ret در صورت نیاز
         if not self.code or not self.code[-1].strip().endswith('ret'):
-            if node.return_type == 'null':
+            if hasattr(node, 'return_type') and node.return_type == 'null':
                 self.emit("mov r0, 0")
             self.emit("ret")
         self.emit("")
@@ -106,42 +125,102 @@ class CodeGenerator:
             self.emit_comment(f"Declare {node.name} in {reg}")
 
     def visit_Assignment(self, node):
+        """Visit assignment - handle both variable and array assignments"""
         value_reg = self.visit(node.value)
+        
         if isinstance(node.target, str):
+            # Variable assignment
             if node.target in self.function_params:
                 target_reg = self.function_params[node.target]
             else:
                 target_reg = self.function_vars.setdefault(node.target, self.register_manager.allocate())
             if value_reg != target_reg:
                 self.emit(f"mov {target_reg}, {value_reg}")
+        
+        elif hasattr(node.target, 'array'):  # ArrayAccess
+            # Array element assignment: x[0] = 42
+            array_reg = self.get_variable_register(node.target.array)
+            index_reg = self.visit(node.target.index)
+            self.emit(f"store {array_reg}, {index_reg}, {value_reg}")
 
     def visit_FunctionCall(self, node):
+        """Visit function call - handle built-ins and user functions"""
         if node.name == 'scan':
             reg = self.register_manager.allocate()
             self.emit(f"call iget, {reg}")
             return reg
+        
         elif node.name == 'print':
-            arg_reg = self.visit(node.args[0])
-            self.emit(f"call iput, {arg_reg}")
+            if node.args:  # چک کردن وجود آرگومان
+                arg_reg = self.visit(node.args[0])
+                self.emit(f"call iput, {arg_reg}")
+            else:
+                # اگر print بدون آرگومان باشه
+                zero_reg = self.register_manager.allocate()
+                self.emit(f"mov {zero_reg}, 0")
+                self.emit(f"call iput, {zero_reg}")
+        
+        elif node.name == 'list':
+            # Create array: list(5) creates array of size 5
+            if node.args:
+                size_reg = self.visit(node.args[0])
+                result_reg = self.register_manager.allocate()
+                self.emit(f"call malloc, {result_reg}, {size_reg}")
+                return result_reg
+            else:
+                # Empty array
+                result_reg = self.register_manager.allocate()
+                zero_reg = self.register_manager.allocate()
+                self.emit(f"mov {zero_reg}, 0")
+                self.emit(f"call malloc, {result_reg}, {zero_reg}")
+                return result_reg
+        
+        elif node.name == 'length':
+            # Get array length
+            if node.args:
+                array_reg = self.visit(node.args[0])
+                result_reg = self.register_manager.allocate()
+                self.emit(f"call length, {result_reg}, {array_reg}")
+                return result_reg
+        
         else:
-            arg_regs = [self.visit(arg) for arg in node.args]
+            # پردازش توابع معمولی
+            arg_regs = []
+            if hasattr(node, 'args') and node.args:
+                arg_regs = [self.visit(arg) for arg in node.args]
+            
             result_reg = self.register_manager.allocate()
-            args_str = ', '.join(arg_regs)
-            self.emit(f"call {node.name}, {result_reg}, {args_str}" if arg_regs else f"call {node.name}, {result_reg}")
+            if arg_regs:
+                args_str = ', '.join(arg_regs)
+                self.emit(f"call {node.name}, {result_reg}, {args_str}")
+            else:
+                self.emit(f"call {node.name}, {result_reg}")
             return result_reg
+
+    def visit_ArrayAccess(self, node):
+        """Visit array access: x[0]"""
+        array_reg = self.get_variable_register(node.array)
+        index_reg = self.visit(node.index)
+        result_reg = self.register_manager.allocate()
+        self.emit(f"load {result_reg}, {array_reg}, {index_reg}")
+        return result_reg
+
+    def get_variable_register(self, var_name):
+        """Get register for variable name"""
+        if var_name in self.function_params:
+            return self.function_params[var_name]
+        elif var_name in self.function_vars:
+            return self.function_vars[var_name]
+        else:
+            # تخصیص رجیستر جدید
+            reg = self.register_manager.allocate()
+            self.function_vars[var_name] = reg
+            return reg
 
     def visit_Return(self, node):
         reg = self.visit(node.value) if node.value else None
         self.emit(f"mov r0, {reg}" if reg else "mov r0, 0")
         self.emit("ret")
-
-    def visit_BinaryOp(self, node):
-        left = self.visit(node.left)
-        right = self.visit(node.right)
-        result = self.register_manager.allocate()
-        op_map = {'+': 'add', '-': 'sub', '*': 'mul', '/': 'div', '<': 'cmp<', '>': 'cmp>', '<=': 'cmp<=', '>=': 'cmp>=', '==': 'cmp=='}
-        self.emit(f"{op_map.get(node.op, 'mov')} {result}, {left}, {right}")
-        return result
 
     def visit_If(self, node):
         cond = self.visit(node.condition)
@@ -166,6 +245,29 @@ class CodeGenerator:
             self.visit(stmt)
         self.emit(f"jmp {start_label}")
         self.emit(f"{end_label}:")
+
+    def visit_DoWhile(self, node):
+        """Visit do-while statement"""
+        start_label = self.generate_label("do_start")
+        
+        self.emit(f"{start_label}:")
+        
+        # اجرای body
+        if hasattr(node.body, 'statements'):
+            # اگر body از نوع Block باشه
+            for stmt in node.body.statements:
+                self.visit(stmt)
+        elif isinstance(node.body, list):
+            # اگر body لیست statement ها باشه
+            for stmt in node.body:
+                self.visit(stmt)
+        else:
+            # اگر فقط یک statement باشه
+            self.visit(node.body)
+        
+        # بررسی شرط
+        cond = self.visit(node.condition)
+        self.emit(f"jnz {cond}, {start_label}")  # اگر شرط true باشد، برگرد
 
     def visit_For(self, node):
         start_reg = self.visit(node.start)
@@ -199,6 +301,64 @@ class CodeGenerator:
         self.emit(f"mov {reg}, {1 if node.value == 'true' else 0}")
         return reg
 
+    def visit_TernaryOp(self, node):
+        # ارزیابی شرط
+        cond_reg = self.visit(node.condition)
+        
+        # تولید لیبل‌ها
+        false_label = self.generate_label("ternary_false")
+        end_label = self.generate_label("ternary_end")
+        
+        # رجیستر نتیجه
+        result_reg = self.register_manager.allocate()
+        
+        # اگر شرط false باشد، به false_label برو
+        self.emit(f"jz {cond_reg}, {false_label}")
+        
+        # مقدار true
+        true_reg = self.visit(node.true_expr)
+        self.emit(f"mov {result_reg}, {true_reg}")
+        self.emit(f"jmp {end_label}")
+        
+        # مقدار false
+        self.emit(f"{false_label}:")
+        false_reg = self.visit(node.false_expr)
+        self.emit(f"mov {result_reg}, {false_reg}")
+        
+        # پایان
+        self.emit(f"{end_label}:")
+        
+        return result_reg
+
+    def visit_BinaryOp(self, node):
+        """Visit binary operation"""
+        left = self.visit(node.left)
+        right = self.visit(node.right)
+        result = self.register_manager.allocate()
+        
+        op_map = {
+            '+': 'add', '-': 'sub', '*': 'mul', '/': 'div',
+            '<': 'cmp<', '>': 'cmp>', '<=': 'cmp<=', 
+            '>=': 'cmp>=', '==': 'cmp==', '!=': 'cmp!='
+        }
+        
+        instruction = op_map.get(node.op, 'mov')
+        self.emit(f"{instruction} {result}, {left}, {right}")
+        return result
+
+    def generic_visit(self, node):
+        """Improved generic visit with debugging"""
+        print(f"Warning: No visitor for {type(node).__name__}")
+        # اگر node دارای attributes باشه، اونا رو پردازش کن
+        if hasattr(node, '__dict__'):
+            for attr_name, attr_value in node.__dict__.items():
+                if isinstance(attr_value, list):
+                    for item in attr_value:
+                        if hasattr(item, '__class__'):
+                            self.visit(item)
+                elif hasattr(attr_value, '__class__') and hasattr(self, f'visit_{attr_value.__class__.__name__}'):
+                    self.visit(attr_value)
+
 
 def generate_code(ast):
     generator = CodeGenerator()
@@ -227,24 +387,13 @@ def compile_teslang_with_codegen(code):
 
 # Test with the provided example (fixed)
 if __name__ == "__main__":
-    # Test with corrected example
-    test_code = '''funk add(a as int, b as int) <int>
-{
-    result :: int;
-    result = a + b;
-    return result;
-}
-
-funk main() <int>
-{
-    a :: int;
-    b :: int;
-    
-    a = scan();
-    b = scan();
-    
-    print(add(a, b));
-    return 0;
+    # Test with array support
+    test_code = '''funk main() <null> {
+    x :: vector;
+    x = list(5);
+    x[0] = 42;
+    print(x[0]);
+    return;
 }'''
     
     print("Compiling TesLang code...")
@@ -261,5 +410,4 @@ funk main() <int>
         print("-" * 30)
         print(intermediate_code)
         print("-" * 30)
-        print("Expected behavior: Input 7, 7 -> Output 14")
-        print("If getting 0 or 7, check register allocation logic")
+        print("Expected behavior: Should create array and print 42")

@@ -216,7 +216,7 @@ def p_while_stmt(p):
     p[0] = While(p[4], p[7], p.lineno(1))
 
 def p_do_while_stmt(p):
-    '''do_while_stmt : DO statement WHILE LSQUAREBR LSQUAREBR expression RSQUAREBR RSQUAREBR'''
+    '''do_while_stmt : DO statement WHILE LSQUAREBR LSQUAREBR expression RSQUAREBR RSQUAREBR SEMI_COLON'''
     p[0] = DoWhile(p[2], p[6], p.lineno(1))
 
 def p_block_stmt(p):
