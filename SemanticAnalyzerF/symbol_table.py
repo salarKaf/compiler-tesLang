@@ -1,4 +1,3 @@
-# symbol_table.py
 """Symbol Table Implementation for TesLang Compiler"""
 
 class SymbolTable:
@@ -32,7 +31,7 @@ class Symbol:
     
     def __init__(self, name, symbol_type, data_type=None, params=None, return_type=None, initialized=False, line=None):
         self.name = name
-        self.symbol_type = symbol_type  # 'variable', 'function'
+        self.symbol_type = symbol_type  
         self.data_type = data_type
         self.params = params or []
         self.return_type = return_type

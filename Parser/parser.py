@@ -16,9 +16,8 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 from SemanticAnalyzerF.symbol_table import SymbolTable, Symbol
 from SemanticAnalyzerF.semantic_analyzer import SemanticAnalyzer
 
-# Global variables for parsing
 symbol_table = None
-function_context_stack = []  # Stack to track nested function contexts
+function_context_stack = []  
 errors = []
 current_function_name = None
 
@@ -49,7 +48,6 @@ def is_inside_function():
     global current_function_name
     return current_function_name is not None
 
-# Grammar Rules
 def p_program(p):
     '''program : function_list'''
     p[0] = Program(p[1])
@@ -72,14 +70,14 @@ def p_function(p):
     old_function = current_function_name
     current_function_name = p[2]
     
-    if len(p) == 12:  # تابع با پارامتر و بدنه
+    if len(p) == 12: 
         p[0] = Function(p[2], p[4], p[7], p[10], p.lineno(1))
-    elif len(p) == 11:  # تابع بدون پارامتر و با بدنه
+    elif len(p) == 11:  
         p[0] = Function(p[2], [], p[6], p[9], p.lineno(1))
-    elif len(p) == 13:  # تابع کوتاه با پارامتر
+    elif len(p) == 13: 
         return_stmt = Return(p[11], p.lineno(10))
         p[0] = Function(p[2], p[4], p[7], [return_stmt], p.lineno(1))
-    else:  # تابع کوتاه بدون پارامتر
+    else:  
         return_stmt = Return(p[10], p.lineno(9))
         p[0] = Function(p[2], [], p[6], [return_stmt], p.lineno(1))
     
@@ -110,7 +108,6 @@ def p_stmt_list(p):
     '''stmt_list : stmt_list statement
                  | statement
                  | empty'''
-    # اگر داخل تابع نیستیم و statement یک Function است، context را مدیریت کنیم
     if len(p) == 2 and hasattr(p[1], '__class__') and p[1].__class__.__name__ == 'Function':
         push_function_context(p[1].name)
         
@@ -192,7 +189,6 @@ def p_return_stmt(p):
     '''return_stmt : RETURN expression SEMI_COLON
                   | RETURN SEMI_COLON'''
     
-    # Don't check function context here - let semantic analyzer handle it
     if len(p) == 3:
         p[0] = Return(None, p.lineno(1))
     else:
@@ -290,7 +286,6 @@ def p_empty(p):
     '''empty :'''
     pass
 
-# Precedence and associativity
 precedence = (
     ('left', 'OR'),
     ('left', 'AND'),
@@ -324,30 +319,24 @@ def p_error(p):
     else:
         add_error("Syntax error: unexpected end of file")
 
-# Main compiler function
 def compile_teslang(code):
     """Main function to compile TesLang code"""
     global symbol_table, function_context_stack, errors, current_function_name    
-    # Reset global state
     symbol_table = SymbolTable()
     function_context_stack = []
     errors = []
     current_function_name = None
     
-    # Build parser
     parser = yacc.yacc()
     
-    # Parse the code
     try:
         ast = parser.parse(code, debug=False)
         if not ast:
             return errors
         
-        # Perform semantic analysis
         analyzer = SemanticAnalyzer()
         semantic_errors = analyzer.analyze(ast)
         
-        # Combine parsing and semantic errors
         all_errors = errors + semantic_errors
         return all_errors
         
@@ -358,16 +347,13 @@ def compile_teslang(code):
 def parse_code(code):
     """Parse code and return AST (without semantic analysis)"""
     global symbol_table, function_context_stack, errors, current_function_name    
-    # Reset global state
     symbol_table = SymbolTable()
     function_context_stack = []
     errors = []
     current_function_name = None
     
-    # Build parser
     parser = yacc.yacc()
     
-    # Parse the code
     try:
         ast = parser.parse(code, debug=False)
         return ast

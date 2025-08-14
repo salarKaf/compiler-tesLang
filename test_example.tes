@@ -1,7 +1,8 @@
 funk main() <null> {
-    x :: vector;
-    x = list(5);
-    x[0] = 42;
-    print(x[0]);
-    return;
+    x :: int = 2;
+    y :: int = 5;
+    result :: int;
+
+    result = (x > y) ? x : y;
+    print(result);
 }

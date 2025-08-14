@@ -14,7 +14,6 @@ class ASTNode:
         """Convert AST to tree string representation"""
         result = " " * indent + prefix + self.__class__.__name__
         
-        # Add node-specific information
         if hasattr(self, 'name'):
             result += f" ({self.name})"
         elif hasattr(self, 'value'):
@@ -24,7 +23,6 @@ class ASTNode:
         
         result += "\n"
         
-        # Process children
         children = []
         for attr_name, attr_value in self.__dict__.items():
             if attr_name.startswith('_') or attr_name == 'line':
@@ -37,7 +35,6 @@ class ASTNode:
                     if isinstance(item, ASTNode):
                         children.append((f"{attr_name}[{i}]", item))
         
-        # Display children
         for i, (child_name, child_node) in enumerate(children):
             is_last = i == len(children) - 1
             child_prefix = "└── " if is_last else "├── "
@@ -47,7 +44,6 @@ class ASTNode:
             result += " " * indent + child_prefix + f"{child_name}: "
             result += child_node.to_tree(child_indent, "").strip() + "\n"
             
-            # Add recursive children with proper indentation
             if hasattr(child_node, '__dict__'):
                 grandchildren = []
                 for attr_name, attr_value in child_node.__dict__.items():
@@ -280,11 +276,9 @@ def print_ast_tree(ast_node, title="Abstract Syntax Tree"):
     
     def print_node(node, indent=0, prefix="", is_last=True):
         """Recursively print AST nodes"""
-        # Current node
         connector = "└── " if is_last else "├── "
         node_info = str(node)
         
-        # Add specific information for some nodes
         if hasattr(node, 'name') and node.name:
             node_info += f" '{node.name}'"
         elif hasattr(node, 'value') and node.value is not None:
@@ -294,7 +288,6 @@ def print_ast_tree(ast_node, title="Abstract Syntax Tree"):
         
         print(" " * indent + connector + node_info)
         
-        # Get children
         children = []
         for attr_name, attr_value in node.__dict__.items():
             if attr_name.startswith('_') or attr_name == 'line':
@@ -307,17 +300,14 @@ def print_ast_tree(ast_node, title="Abstract Syntax Tree"):
                     if isinstance(item, ASTNode):
                         children.append((f"{attr_name}[{i}]", item))
         
-        # Print children
         for i, (child_name, child_node) in enumerate(children):
             is_last_child = i == len(children) - 1
             child_prefix = "    " if is_last else "│   "
             child_indent = indent + 4
             
-            # Print attribute name
             attr_connector = "└── " if is_last_child else "├── "
             print(" " * indent + child_prefix + attr_connector + f"{child_name}:")
             
-            # Print the child node
             print_node(child_node, child_indent + 4, child_prefix + ("    " if is_last_child else "│   "), True)
     
     print_node(ast_node)

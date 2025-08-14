@@ -18,7 +18,7 @@ def main():
     if len(sys.argv) != 2:
         print("Usage: python main.py <input_file>")
         print("Or run without arguments to test the example code")
-        main()  # Run with example code
+        main()  
         return
     
     input_file = sys.argv[1]
@@ -70,7 +70,6 @@ def main():
         print(intermediate_code)
         print("=" * 50)
         
-        # Optionally save to output file
         output_file = input_file.replace('.tl', '.tsm').replace('.txt', '.tsm')
         if output_file == input_file:
             output_file = input_file + '.tsm'

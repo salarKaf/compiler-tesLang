@@ -1,4 +1,3 @@
-# semantic_analyzer.py
 """Semantic Analyzer for TesLang Compiler"""
 
 
@@ -43,14 +42,12 @@ class SemanticAnalyzer:
 
     def visit_Program(self, node):
         """Visit the program node - first pass to collect function declarations"""
-        # First pass: collect all function declarations
         for func in node.functions:
             if not self.symbol_table.lookup_current_scope(func.name):
                 params = [(p.name, p.param_type) for p in func.params]
                 symbol = Symbol(func.name, 'function', params=params, return_type=func.return_type, line=func.line)
                 self.symbol_table.insert(func.name, symbol)
         
-        # Second pass: analyze function bodies
         for func in node.functions:
             self.visit_Function(func)
             
@@ -58,18 +55,14 @@ class SemanticAnalyzer:
         old_function = self.current_function
         self.current_function = node
 
-        # Create new scope for function
         func_scope = SymbolTable(self.symbol_table)
         old_table = self.symbol_table
         self.symbol_table = func_scope
 
-        # Add parameters to function scope
         for param in node.params:
             symbol = Symbol(param.name, 'variable', param.param_type, initialized=True, line=param.line)
             self.symbol_table.insert(param.name, symbol)
 
-        # اضافه کردن این قسمت برای nested functions
-        # First pass: collect nested function declarations
         for stmt in (node.body.statements if hasattr(node.body, 'statements') else 
                     (node.body if isinstance(node.body, list) else [node.body])):
             if isinstance(stmt, Function):
@@ -77,7 +70,6 @@ class SemanticAnalyzer:
                 symbol = Symbol(stmt.name, 'function', params=params, return_type=stmt.return_type, line=stmt.line)
                 self.symbol_table.insert(stmt.name, symbol)
 
-        # Handle function body safely (Block or list or single)
         if hasattr(node.body, 'statements'):
             for stmt in node.body.statements:
                 self.visit(stmt)
@@ -87,7 +79,6 @@ class SemanticAnalyzer:
         else:
             self.visit(node.body)
 
-        # Restore previous scope
         self.symbol_table = old_table
         self.current_function = old_function
 
@@ -102,26 +93,21 @@ class SemanticAnalyzer:
 
     def visit_Assignment(self, node):
         """Visit an assignment node"""
-        # First analyze the value being assigned
         self.visit(node.value)
 
         if isinstance(node.target, str):
-            # Simple variable assignment
             var_symbol = self.symbol_table.lookup(node.target)
             if not var_symbol:
                 self.add_error(f"function '{self.current_function.name}': variable '{node.target}' is not defined", node.line)
                 return
             
-            # Mark variable as initialized
             var_symbol.initialized = True
             
-            # Check type compatibility
             value_type = self.get_expression_type(node.value)
             if value_type and var_symbol.data_type != value_type:
                 self.add_error(f"function '{self.current_function.name}': variable '{node.target}' expected to be of type '{value_type}' but it is '{var_symbol.data_type}' instead", node.line)
 
         elif isinstance(node.target, ArrayAccess):
-            # Array element assignment
             self.visit(node.target.index)
             array_symbol = self.symbol_table.lookup(node.target.array)
             if not array_symbol:
@@ -132,28 +118,23 @@ class SemanticAnalyzer:
 
     def visit_FunctionCall(self, node):
         """Visit a function call node"""
-        # Analyze arguments first
         for arg in node.args:
             self.visit(arg)
 
-        # Handle built-in functions
         if node.name in ['print', 'list', 'length', 'scan']:
             return self.handle_builtin_function(node)
 
-        # Check if function exists
         func_symbol = self.symbol_table.lookup(node.name)
         if not func_symbol:
             self.add_error(f"function '{node.name}' is not defined", node.line)
             return
 
-        # Check argument count
         expected_params = len(func_symbol.params)
         actual_args = len(node.args)
         if expected_params != actual_args:
             self.add_error(f"function '{node.name}': expects {expected_params} arguments but got {actual_args}", node.line)
             return
 
-        # Check argument types
         for i, (arg, (param_name, param_type)) in enumerate(zip(node.args, func_symbol.params)):
             arg_type = self.get_expression_type(arg)
             if arg_type and arg_type != param_type:
@@ -177,11 +158,9 @@ class SemanticAnalyzer:
             self.add_error("return statement outside of function", node.line)
             return
         
-        # Analyze return value if present
         if node.value:
             self.visit(node.value)
 
-        # Check return type compatibility
         expected_type = self.current_function.return_type
         actual_type = 'null' if node.value is None else self.get_expression_type(node.value)
         
@@ -193,38 +172,29 @@ class SemanticAnalyzer:
             
     def visit_For(self, node):
         """Visit a for loop"""
-        # بررسی وجود متغیر حلقه در جدول نمادها
         var_symbol = self.symbol_table.lookup(node.var)
         if not var_symbol:
-            # اگر متغیر هنوز تعریف نشده، تعریفش کن
             symbol = Symbol(node.var, 'variable', 'int', initialized=True, line=node.line)
             self.symbol_table.insert(node.var, symbol)
         else:
-            # اگر از قبل تعریف شده، علامت‌گذاری به عنوان مقداردهی‌شده
             var_symbol.initialized = True
 
-        # بررسی start و end expression ها
         self.visit(node.start)
         self.visit(node.end)
 
-        # بررسی نوع start و end
         start_type = self.get_expression_type(node.start)
         end_type = self.get_expression_type(node.end)
 
         if start_type != 'int' or end_type != 'int':
             self.add_error(f"function '{self.current_function.name}': loop range must be of type 'int'", node.line)
 
-        # بررسی بدنه حلقه
         if hasattr(node.body, 'statements'):
-            # اگر بدنه از نوع Block است
             for stmt in node.body.statements:
                 self.visit(stmt)
         elif isinstance(node.body, list):
-            # اگر بدنه لیست استیتمنت‌هاست
             for stmt in node.body:
                 self.visit(stmt)
         else:
-            # فقط یک استیتمنت ساده
             self.visit(node.body)
 
 
